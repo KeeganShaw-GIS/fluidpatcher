@@ -247,11 +247,11 @@ if [[ $install_synth ]]; then
 
     # install/update fluidpatcher
     FP_VER=`sed -n '/^VERSION/s|[^0-9\.]*||gp' $installdir/patcher/__init__.py &> /dev/null`
-    NEW_FP_VER=`curl -s https://api.github.com/repos/GeekFunkLabs/fluidpatcher/releases/latest | sed -n '/tag_name/s|[^0-9\.]*||gp'`
+    NEW_FP_VER=`curl -s https://api.github.com/repos/KeeganShaw-GIS/fluidpatcher/releases/latest | sed -n '/tag_name/s|[^0-9\.]*||gp'`
     if [[ ! $FP_VER == $NEW_FP_VER ]]; then
         inform "Installing/Updating FluidPatcher version $NEW_FP_VER ..."
-        wget -qO - https://github.com/GeekFunkLabs/fluidpatcher/tarball/master | tar -xzm
-        fptemp=`ls -dt GeekFunkLabs-fluidpatcher-* | head -n1`
+        wget -qO - https://github.com/KeeganShaw-GIS/fluidpatcher/tarball/master | tar -xzm
+        fptemp=`ls -dt KeeganShaw-GIS-fluidpatcher-* | head -n1`
         cd $fptemp
         find . -type d -exec mkdir -p ../{} \;
         # copy files, but don't overwrite banks, config (i.e. yaml files)
