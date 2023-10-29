@@ -117,10 +117,12 @@ warning "Always be careful when running scripts and commands copied
 from the internet. Ensure they are from a trusted source."
 echo "If you want to see what this script does before running it,
 hit ctrl-C and enter 'curl -L git.io/squishbox | more'
-View the full source code at
+View original code by GeekFunkLabs at
 https://github.com/GeekFunkLabs/fluidpatcher
+View the full source code at
+https://github.com/KeeganShaw-GIS/fluidpatcher
 Report issues with this script at
-https://github.com/GeekFunkLabs/fluidpatcher/issues
+https://github.com/KeeganShaw-GIS/fluidpatcher/issues
 
 Choose your install options. Empty responses will use the [default options].
 Setup will begin after all questions are answered.
@@ -247,11 +249,11 @@ if [[ $install_synth ]]; then
 
     # install/update fluidpatcher
     FP_VER=`sed -n '/^VERSION/s|[^0-9\.]*||gp' $installdir/patcher/__init__.py &> /dev/null`
-    NEW_FP_VER=`curl -s https://api.github.com/repos/GeekFunkLabs/fluidpatcher/releases/latest | sed -n '/tag_name/s|[^0-9\.]*||gp'`
+    NEW_FP_VER=`curl -s https://api.github.com/repos/KeeganShaw-GIS/fluidpatcher/releases/latest | sed -n '/tag_name/s|[^0-9\.]*||gp'`
     if [[ ! $FP_VER == $NEW_FP_VER ]]; then
         inform "Installing/Updating FluidPatcher version $NEW_FP_VER ..."
-        wget -qO - https://github.com/GeekFunkLabs/fluidpatcher/tarball/master | tar -xzm
-        fptemp=`ls -dt GeekFunkLabs-fluidpatcher-* | head -n1`
+        wget -qO - https://github.com/KeeganShaw-GIS/fluidpatcher/tarball/master | tar -xzm
+        fptemp=`ls -dt KeeganShaw-GIS-fluidpatcher-* | head -n1`
         cd $fptemp
         find . -type d -exec mkdir -p ../{} \;
         # copy files, but don't overwrite banks, config (i.e. yaml files)
