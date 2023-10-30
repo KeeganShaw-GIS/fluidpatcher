@@ -116,7 +116,7 @@ for the SquishBox or headless Raspberry Pi synth."
 warning "Always be careful when running scripts and commands copied
 from the internet. Ensure they are from a trusted source."
 echo "If you want to see what this script does before running it,
-hit ctrl-C and enter 'curl -L git.io/squishbox | more'
+hit ctrl-C and enter 'curl -L https://tinyurl.com/kfluidpather | more'
 View original code by GeekFunkLabs at
 https://github.com/GeekFunkLabs/fluidpatcher
 View the full source code at
