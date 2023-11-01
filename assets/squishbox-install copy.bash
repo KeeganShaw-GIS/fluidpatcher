@@ -145,35 +145,14 @@ if ! ($ENVCHECK); then
     fi
 fi
 
-echo "What are you setting up?"
-echo "  1. SquishBox"
-echo "  2. Headless Raspberry Pi Synth"
-query "Choose" "1"; installtype=$response
 AUDIOCARDS=(`cat /proc/asound/cards | sed -n 's/.*\[//;s/ *\].*//p'`)
-if [[ $installtype == 1 ]]; then
-    if [[ ! " ${AUDIOCARDS[*]} " =~ " sndrpihifiberry " ]]; then
-        inform "This script must reboot your computer to activate your sound card."
-        inform "Once this is complete, run this script again to continue setup."
-        if yesno "Reboot?"; then
-            sudo sed -i '$ a\dtoverlay=hifiberry-dac' /boot/config.txt
-            sync; sudo reboot
-        fi
-    fi
-	echo "What version of SquishBox hardware are you using?"
-	echo "  v6 - Green PCB with SMT components"
-	echo "  v4 - Purple PCB, has 2 resistors and LED"
-	echo "  v3 - Purple PCB, has 1 resistor"
-	echo "  v2 - Hackaday/perfboard build"
-	query "Choose" "v6"; hw_version=$response
-elif [[ $installtype == 2 ]]; then
-    echo "Set up controls for Headless Pi Synth:"
-    query "    MIDI channel for controls" "1"; ctrls_channel=$response
-    query "    Previous patch momentary CC#" "21"; decpatch=$response
-    query "    Next patch momentary CC#" "22"; incpatch=$response
-    query "    Bank advance momentary CC#" "23"; bankinc=$response
-else
-    exit 1
-fi
+
+echo "Set up controls for Headless Pi Synth:"
+query "    MIDI channel for controls" "1"; ctrls_channel=$response
+query "    Previous patch momentary CC#" "21"; decpatch=$response
+query "    Next patch momentary CC#" "22"; incpatch=$response
+query "    Bank advance momentary CC#" "23"; bankinc=$response
+
 
 query "Enter install location" $HOME; installdir=$response
 if ! [[ -d $installdir ]]; then
@@ -199,25 +178,14 @@ echo "  1. Default"
 i=2
 for dev in ${AUDIOCARDS[@]}; do
     echo "  $i. $dev"
-    if [[ $installtype == 1 && $dev == "sndrpihifiberry" ]]; then
-        defcard=$i
-    elif [[ $installtype == 2 && $dev == "Headphones" ]]; then
+
+    if [[ $dev == "sndrpihifiberry" ]]; then
         defcard=$i
     fi
     ((i+=1))
 done
 query "Choose" $defcard; audiosetup=$response
 
-if yesno "Set up web-based file manager?"; then
-    filemgr=true
-    echo "  Please create a user name and password."
-    read -r -p "    username: " fmgr_user < /dev/tty
-    read -r -p "    password: " fmgr_pass < /dev/tty
-fi
-
-if yesno "Download and install ~400MB of additional soundfonts?"; then
-    soundfonts=true
-fi
 
 echo ""
 if ! yesno "Option selection complete. Proceed with installation?"; then
@@ -241,16 +209,28 @@ if [[ $install_synth ]]; then
     apt_pkg_install "swh-plugins" optional
     apt_pkg_install "tap-plugins" optional
     apt_pkg_install "wah-plugins" optional
+    apt_pkg_install "i2c-tools" # For monitoring i2c port
+    apt_pkg_install "python3-smbus" 
     apt_pkg_install "python3.11-venv"
+    apt_pkg_install "python3-dev"
+    apt_pkg_install "libopenjp2-7"
+
+    # Get FOnt for display
+    cp /usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf ~/DejaVuSerif-Bold.ttf
     # Use a virtual env instead for pip
     python3 -m pip install  sound_env
     source sound_env/bin/activate
-    pip_install "oyaml"
-    if [[ $installtype == 1 ]]; then
-        pip_install "RPi.GPIO"
-        pip_install "RPLCD"
-    fi
+    # TODO Write source sound_env/bin/activate to nano ~/.bashrc
 
+    pip_install "oyaml"
+    pip_install "RPi.GPIO"
+    pip_install "RPLCD"
+    pip_install "adafruit-blinka"
+    pip_install "pillow"
+    pip_install "image"
+    pip_install "adafruit-circuitpython-ssd1306"
+
+    
     # install/update fluidpatcher
     FP_VER=`sed -n '/^VERSION/s|[^0-9\.]*||gp' $installdir/patcher/__init__.py &> /dev/null`
     NEW_FP_VER=`curl -s https://api.github.com/repos/KeeganShaw-GIS/fluidpatcher/releases/latest | sed -n '/tag_name/s|[^0-9\.]*||gp'`
@@ -322,38 +302,17 @@ if (( $audiosetup > 0 )); then
 fi
 
 # set up services
-if [[ $installtype == 1 ]]; then
-    inform "Enabling SquishBox startup service..."
-    chmod a+x $installdir/squishbox.py
-    cat <<EOF | sudo tee /etc/systemd/system/squishbox.service
-[Unit]
-Description=SquishBox
-After=local-fs.target
 
-[Service]
-Type=simple
-ExecStart=$installdir/squishbox.py
-User=$USER
-WorkingDirectory=$installdir
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    sudo systemctl enable squishbox.service
-	sed -i "/^HW_VERSION/s|[v0-9]\+|$hw_version|" $installdir/squishbox.py
-    ASK_TO_REBOOT=true
-elif [[ $installtype == 2 ]]; then
-    inform "Enabling Headless Pi Synth startup service..."
-    chmod a+x $installdir/headlesspi.py
-    cat <<EOF | sudo tee /etc/systemd/system/squishbox.service
+inform "Enabling Headless Pi Synth startup service..."
+chmod a+x $installdir/headlesspi.py
+cat <<EOF | sudo tee /etc/systemd/system/squishbox.service
 [Unit]
 Description=Headless Pi Synth
 After=local-fs.target
 
 [Service]
 Type=simple
-ExecStart=$installdir/headlesspi.py
+ExecStart=$installdir/sound_env/bin/python $installdir/headlesspi.py
 User=$USER
 WorkingDirectory=$installdir
 Restart=on-failure
@@ -361,68 +320,15 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 EOF
-    sudo systemctl enable squishbox.service
-    sed -i "/^CHAN/s|[0-9]\+|$ctrls_channel|" $installdir/headlesspi.py
-    sed -i "/^DEC_PATCH/s|[0-9]\+|$decpatch|" $installdir/headlesspi.py
-    sed -i "/^INC_PATCH/s|[0-9]\+|$incpatch|" $installdir/headlesspi.py
-    sed -i "/^BANK_INC/s|[0-9]\+|$bankinc|" $installdir/headlesspi.py
-    ASK_TO_REBOOT=true
-fi
 
-if [[ $filemgr ]]; then
-    # set up web server, install tinyfilemanager
-    inform "Setting up web-based file manager..."
-    sysupdate
-    apt_pkg_install "nginx"
-    apt_pkg_install "php-fpm"
-    phpver=`ls -t /etc/php | head -n1`
-    fmgr_hash=`php -r "print password_hash('$fmgr_pass', PASSWORD_DEFAULT);"`
-    # enable php in nginx
-    cat <<EOF | sudo tee /etc/nginx/sites-available/default
-server {
-        listen 80 default_server;
-        listen [::]:80 default_server;
-        root /var/www/html;
-        index index.php index.html index.htm index.nginx-debian.html;
-        server_name _;
-        location / {
-                try_files \$uri \$uri/ =404;
-        }
-        location ~ \.php\$ {
-                include snippets/fastcgi-php.conf;
-                fastcgi_pass unix:/run/php/php$phpver-fpm.sock;
-        }
-}
-EOF
-    # some tweaks to allow uploading bigger files
-    sudo sed -i "/client_max_body_size/d" /etc/nginx/nginx.conf
-    sudo sed -i "/^http {/aclient_max_body_size 900M;" /etc/nginx/nginx.conf
-    sudo sed -i "/upload_max_filesize/cupload_max_filesize = 900M" /etc/php/$phpver/fpm/php.ini
-    sudo sed -i "/post_max_size/cpost_max_size = 999M" /etc/php/$phpver/fpm/php.ini
-    # set permissions and umask to avoid permissions problems
-    sudo usermod -a -G $USER www-data
-    sudo chmod -R g+rw $installdir/SquishBox
-    sudo sed -i "/UMask/d" /lib/systemd/system/php$phpver-fpm.service
-    sudo sed -i "/\[Service\]/aUMask=0002" /lib/systemd/system/php$phpver-fpm.service
-    # install and configure tinyfilemanager (https://tinyfilemanager.github.io)
-    wget -q https://raw.githubusercontent.com/prasathmani/tinyfilemanager/master/tinyfilemanager.php
-    sed -i "/define('APP_TITLE'/cdefine('APP_TITLE', 'SquishBox Manager');" tinyfilemanager.php
-    sed -i "/'admin' =>/d;/'user' =>/d" tinyfilemanager.php
-    sed -i "/\$auth_users =/a\    '$fmgr_user' => '$fmgr_hash'" tinyfilemanager.php
-    sed -i "/\$theme =/c\$theme = 'dark';" tinyfilemanager.php
-    sed -i "0,/root_path =/s|root_path = .*|root_path = '$installdir/SquishBox';|" tinyfilemanager.php
-    sed -i "0,/favicon_path =/s|favicon_path = .*|favicon_path = 'gfl_logo.png';|" tinyfilemanager.php
-    sudo mv -f tinyfilemanager.php /var/www/html/index.php
-    wget -q https://geekfunklabs.com/gfl_logo.png
-    sudo mv -f gfl_logo.png /var/www/html/
-    ASK_TO_REBOOT=true
-fi
+sudo systemctl enable squishbox.service
+sed -i "/^CHAN/s|[0-9]\+|$ctrls_channel|" $installdir/headlesspi.py
+sed -i "/^DEC_PATCH/s|[0-9]\+|$decpatch|" $installdir/headlesspi.py
+sed -i "/^INC_PATCH/s|[0-9]\+|$incpatch|" $installdir/headlesspi.py
+sed -i "/^BANK_INC/s|[0-9]\+|$bankinc|" $installdir/headlesspi.py
+ASK_TO_REBOOT=true
 
-if [[ $soundfonts ]]; then
-    # download extra soundfonts
-    inform "Downloading free soundfonts..."
-    wget -qO - --show-progress https://geekfunklabs.com/squishbox_soundfonts.tar.gz | tar -xzC $installdir/SquishBox --skip-old-files
-fi
+
 
 success "Tasks complete!"
 

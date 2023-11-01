@@ -1,5 +1,28 @@
 # FluidPatcher
 
+## Notes on Fork
+
+### Install Procedures
+
+Setup I2C:
+
+```
+sudo raspi-config
+```
+
+1. Go to Interfacing Options
+2. Select P5 1SC "Enable/Disable automatic loading of I2C kernel module"
+3. Select "Yes" when prompted "Would you like the ARM I2C interface to be enabled?"
+4. Reboot
+
+Install App:
+
+```
+curl -L https://tinyurl.com/kfluidpather | bash
+```
+
+## Description
+
 A Python interface for the [FluidSynth](http://www.fluidsynth.org) software synthesizer that lets you create performance patches you can easily switch between while playing. Patches are described in human-readable and -editable [bank files](patcher/file_formats.md#bank-files), and can be used to create complex combinations of instruments, effects, rules for routing messages from the controls on your MIDI device, play MIDI files, and create sequencers and arpeggiators. Fluidsynth is an open source software synthesizer that uses [soundfonts](https://en.wikipedia.org/wiki/SoundFont) - a [freely-available](https://duckduckgo.com/?q=free+soundfonts) and [well-documented](http://www.synthfont.com/sfspec24.pdf) sound format.
 
 FluidPatcher should work on any platform where FluidSynth and Python can be installed. The [patcher/](patcher/README.md) directory contains all the code to interpret bank files and control FluidSynth, and can be used to create your own interfaces/implementations so your bank files can be portable and useful in different contexts (e.g. performing, editing, recording). Several implementations are included:
